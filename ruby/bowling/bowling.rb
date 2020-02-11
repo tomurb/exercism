@@ -1,23 +1,20 @@
+require 'forwardable'
+
 class Game
   class BowlingError < StandardError; end
+  extend Forwardable
   def initialize
     @score = 0
-    @started = false
-    @frames = [LastFrame.new] + Array.new(8) { Frame.new }
-    @frame = Frame.new
+    @frames = Frames.new
     @roll_factor = 1
     @next_roll_factor = 1
   end
 
   def roll(pins)
     raise BowlingError if completed? || pins < 0
-    @started = true
-    @frame = @frames.pop if @frame.end?
     @score += evaluate_score(pins)
-    @frame << pins unless @frame.nil?
-    @roll_factor += 1 if (@frame.spare? || @frame.strike?) && !@frame.last?
-    @next_roll_factor += 1 if @frame.strike? && !@frame.last?
-    @frame.spare_bonus! if @frame.spare?
+    @frames << pins
+    bonuses
   end
   
   def score
@@ -27,28 +24,61 @@ class Game
 
   private
 
-  def started?
-    @started
-  end
+  def_delegators :@frames, :started?, :completed?, :roll_bonus?, :next_roll_bonus?
 
-  def completed?
-    @frames.size == 0 && @frame.end?
+  def bonuses
+    @roll_factor, @next_roll_factor = @next_roll_factor, 1
+    @roll_factor += 1 if roll_bonus?
+    @next_roll_factor += 1 if next_roll_bonus?
   end
 
   def evaluate_score(pins)
     result = pins * @roll_factor
-    @roll_factor = @next_roll_factor
-    @next_roll_factor = 1
     result
   end
 
+  class Frames
+    include Enumerable
+    extend Forwardable
+
+    def initialize
+      @array = ([LastFrame.new] + Array.new(9) { Frame.new })
+      @started = false
+    end
+
+    attr_reader :array
+    def_delegators :@array, :each, :size
+
+    def current
+      @current = @current.nil? || @current.end? ? @array&.pop : @current
+    end
+
+    def next_roll_bonus?
+      @current&.next_roll_bonus?
+    end
+
+    def roll_bonus?
+      @current&.roll_bonus?
+    end
+
+    def <<(pins)
+      current << pins  unless current.nil?
+    end
+
+    def completed?
+      return true if current.nil?
+      size == 0 && current.end?  
+    end
+
+    def started?
+      @array.size < 10
+    end
+  end
   class Frame
     def initialize
       @rolls = []
       @spare = false
-      @factor = 1
       @strike = false
-      @strike_bonus = false
     end
 
     def end?
@@ -61,6 +91,14 @@ class Game
       @strike = true if roll == 10
       @spare = true if @rolls.sum == 10 && !strike?
       raise BowlingError if @rolls.sum > 10
+    end
+
+    def roll_bonus?
+      (spare? || strike?) && !last?
+    end
+
+    def next_roll_bonus?
+      strike? && !last?
     end
 
     def spare?
@@ -94,6 +132,7 @@ class Game
       raise BowlingError if roll > 10
       raise BowlingError if @rolls.sum > 20 && @strikes < 2
       @spare = true if @rolls.sum == 10
+      spare_bonus! if spare?
     end
 
     def end?
