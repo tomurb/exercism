@@ -40,17 +40,21 @@ class Game
   class Frames
     include Enumerable
     extend Forwardable
+    NORMAL_FRAMES = 9
 
     def initialize
-      @array = ([LastFrame.new] + Array.new(9) { Frame.new })
+      @index = 0
       @started = false
     end
 
-    attr_reader :array
-    def_delegators :@array, :each, :size
-
     def current
-      @current = @current.nil? || @current.end? ? @array&.pop : @current
+      @current = @current.nil? || @current.end? ? pop : @current
+    end
+
+    def pop
+      @index += 1
+      return nil if @index > 10
+      @index <= NORMAL_FRAMES ? Frame.new : LastFrame.new
     end
 
     def next_roll_bonus?
@@ -67,11 +71,11 @@ class Game
 
     def completed?
       return true if current.nil?
-      size == 0 && current.end?  
+      @index == 10 && current.end?  
     end
 
     def started?
-      @array.size < 10
+      @index > 0
     end
   end
   class Frame
