@@ -91,10 +91,10 @@ class Game
     end
 
     def <<(roll)
+      @strike = true if roll == 10 # strike_checker
+      @spare = true if @rolls.sum + roll == 10 && !strike? # spare_checker
       @rolls << roll
-      @strike = true if roll == 10
-      @spare = true if @rolls.sum == 10 && !strike?
-      raise BowlingError if @rolls.sum > 10
+      raise BowlingError if @rolls.sum > 10 # sum_checker
     end
 
     def roll_bonus?
@@ -129,12 +129,14 @@ class Game
 
     def <<(roll)
       raise BowlingError if roll == 10 && strike? && @rolls.size == 2 && @rolls.sum != 20
-      @strike = true if @rolls.size.zero? && roll == 10
-      @spare = true if @rolls.sum == 10 && !strike?
+      #
+      @strike = true if @rolls.size.zero? && roll == 10 # strike_checker
+      @spare = true if @rolls.sum == 10 && !strike? # spare_checker
       @rolls << roll
-      @strikes += 1 if roll == 10
-      raise BowlingError if roll > 10
-      raise BowlingError if @rolls.sum > 20 && @strikes < 2
+      #
+      @strikes += 1 if roll == 10 # strikes_counter
+      raise BowlingError if roll > 10 # roll checker class
+      raise BowlingError if @rolls.sum > 20 && @strikes < 2 # sum checker class
       @spare = true if @rolls.sum == 10
       spare_bonus! if spare?
     end
